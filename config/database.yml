@@ -1,0 +1,33 @@
+default: &default
+  adapter: mysql2
+  encoding: utf8mb4
+  pool:     <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  host:     <%= ENV.fetch("MYSQL_HOST") { 'localhost' } %>
+  port:     <%= ENV.fetch("MYSQL_PORT") { 3306 } %>
+  username: <%= ENV.fetch("MYSQL_USERNAME") { 'root' } %>
+  password: <%= ENV.fetch("MYSQL_PASSWORD") { '123456' } %>
+
+development:
+  <<: *default
+  database: testing_ci_development
+
+test:
+  <<: *default
+  database: testing_ci_test
+
+staging:
+  <<: *default
+  database: <%= ENV['DATABASE_NAME'] %>
+  username: <%= ENV['DATABASE_USERNAME'] %>
+  password: <%= ENV['DATABASE_PASSWORD'] %>
+  host: <%= ENV['DATABASE_HOSTNAME'] %>
+  port: <%= ENV['DATABASE_PORT'] %>
+
+
+production:
+  <<: *default
+  database: testing_ci_production
+  username: <%= ENV['DB_USERNAME'] %>
+  password: <%= ENV['DB_PASSWORD'] %>
+  host: <%= ENV['DB_HOSTNAME'] %>
+  port: <%= ENV['DB_PORT'] %>
