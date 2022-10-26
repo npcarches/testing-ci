@@ -1,0 +1,11 @@
+name: CI Flow
+on:
+  pull_request:
+    branches:
+      - '**'
+jobs:
+  ci_flow:
+    name: 'CI'
+    uses: ./.github/workflows/template_verify_and_run_tests_job.yml
+    secrets:
+      rails_master_key: ${{ secrets.RAILS_MASTER_KEY }}

@@ -1,0 +1,109 @@
+name: CI Flow Template
+on:
+  workflow_call:
+    #  Define passed secrets of this workflow
+    secrets:
+      rails_master_key:
+        description: 'Rails Master Key'
+        required: true
+
+jobs:
+  build_and_verify:
+    runs-on: ubuntu-latest
+    env:
+      RAILS_ENV: test
+      RAILS_MASTER_KEY: ${{ secrets.rails_master_key }}
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: 3306
+      MYSQL_USERNAME: root
+      MYSQL_PASSWORD: password
+    # Similar to docker-compose.yml but not the same, 🤷‍♂️
+    services:
+      mysql:
+        image: mysql:5.7
+        ports:
+        - 3306:3306
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: testing_ci_test
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+    steps:
+      # Checkout to get code from the branch
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      # Install ruby with the correct version
+      - name: Install Ruby version specified in `.ruby-version`
+        uses: eregon/use-ruby-action@master # this will use by default the .ruby-version file in your repository
+
+      # Install linux packages
+      - name: Install required apt packages
+        run: |
+          sudo apt-get update && sudo apt-get -y install libmysqlclient-dev
+
+      # Install NodeJS with the correct version
+      - name: Install required Node.js version
+        uses: actions/setup-node@v2
+        with:
+          node-version: "12"
+
+      # Cache all gems in 'vendor/bundle'
+      - name: Setup cache key and directory for gems cache
+        uses: actions/cache@v3
+        with:
+          path: vendor/bundle
+          key: ${{ runner.os }}-gems-${{ hashFiles('**/Gemfile.lock') }}
+
+      # Get yarn cache directory, normally is 'node_modules'
+      - name: Get Yarn cache directory path
+        id: yarn-cache
+        run: echo "::set-output name=dir::$(yarn cache dir)"
+
+      # Cache all JS libraries in the yarn cache directory
+      - name: Setup cache key and directory for node_modules cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.yarn-cache.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+
+      # Run bundle gems, it will be supper fast if already cache
+      - name: Bundle install
+        run: |
+          bundle config path vendor/bundle
+          bundle install --jobs 4 --retry 3
+      - name: Yarn install
+        run: yarn --frozen-lockfile
+
+      # Run Rubocop for checking styles
+      - name: Rubocop
+        run:  |
+          bundle exec rubocop app/controllers/adminapi/v2
+          bundle exec rubocop app/interactors
+          bundle exec rubocop spec
+
+      # Run Rspec for unit tests and generate reports
+      - name: Rails Rspec
+        run: |
+          bundle exec rails db:setup
+          bundle exec rails db:migrate
+          bundle exec rspec  --format html --out tmp/rspec/rspec-report.html
+
+      # Upload the unit test report
+      - name: Upload Rspec results
+        uses: actions/upload-artifact@master
+        if: always()
+        with:
+          name: rspec-repost
+          path: tmp/rspec
+
+      # Update the coverage report
+      - name: Upload coverage results
+        uses: actions/upload-artifact@master
+        if: always()
+        with:
+          name: coverage-repost
+          path: tmp/coverage
