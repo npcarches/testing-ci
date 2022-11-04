@@ -81,9 +81,7 @@ jobs:
       # Run Rubocop for checking styles
       - name: Rubocop
         run:  |
-          bundle exec rubocop app/controllers/adminapi/v2
-          bundle exec rubocop app/interactors
-          bundle exec rubocop spec
+          bundle exec rubocop app/controllers
 
       # Run Rspec for unit tests and generate reports
       - name: Rails Rspec
